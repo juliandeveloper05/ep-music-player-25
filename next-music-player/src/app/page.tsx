@@ -1,65 +1,143 @@
-import Image from "next/image";
+// Ubicación: src/app/page.tsx
+// ----------------------------------------------------------------------
+// Página principal de la aplicación.
+// Actúa como orquestador, conectando los Hooks (Lógica) con los
+// Componentes (UI).
+// ----------------------------------------------------------------------
+
+"use client"; // Indispensable en Next.js App Router para componentes con estado
+
+import { useState } from "react";
+import Header from "@/components/Header";
+import Visualizer from "@/components/Visualizer";
+import PlayerControls from "@/components/PlayerControls";
+import Playlist from "@/components/Playlist";
+import Equalizer from "@/components/Equalizer";
+import StemIsolator from "@/components/StemIsolator";
+import { usePlayerState } from "@/hooks/usePlayerState";
+import { useAudioProcessing } from "@/hooks/useAudioProcessing";
 
 export default function Home() {
+  // Estado para visibilidad de paneles flotantes
+  const [showEQ, setShowEQ] = useState(false);
+  const [showIsolator, setShowIsolator] = useState(false);
+
+  // Hook 1: Estado del Reproductor (Lógica de Playlist, Play/Pause, Carga de Archivos)
+  const {
+    audioRef,
+    playlist,
+    currentIndex,
+    isPlaying,
+    currentTime,
+    duration,
+    volume,
+    coverUrl,
+    loadFiles,
+    togglePlay,
+    playNext,
+    playPrev,
+    seek,
+    updateVolume,
+    handleCoverUpload,
+  } = usePlayerState();
+
+  // Hook 2: Procesamiento de Audio (Lógica Web Audio API)
+  const { setStemMode, updateEQ, resetEQ, analyser } = useAudioProcessing(
+    audioRef,
+    isPlaying
+  );
+
+  // Manejadores para abrir/cerrar paneles (excluyentes entre sí)
+  const handleToggleEQ = () => {
+    setShowEQ(!showEQ);
+    if (!showEQ) setShowIsolator(false);
+  };
+
+  const handleToggleIsolator = () => {
+    setShowIsolator(!showIsolator);
+    if (!showIsolator) setShowEQ(false);
+  };
+
+  const currentTrack = playlist[currentIndex];
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="h-screen h-[100dvh] bg-slate-950 text-slate-200 flex flex-col font-sans overflow-hidden">
+      {/* Encabezado */}
+      <Header
+        onToggleEQ={handleToggleEQ}
+        onToggleIsolator={handleToggleIsolator}
+        onUploadCover={handleCoverUpload}
+        onUploadFiles={loadFiles}
+      />
+
+      <main className="flex-1 flex flex-col md:flex-row overflow-hidden relative min-h-0">
+        {/* Paneles Flotantes (Renderizado condicional para limpieza) */}
+        <Equalizer
+          isOpen={showEQ}
+          onClose={() => setShowEQ(false)}
+          onUpdateEQ={updateEQ}
+          onReset={resetEQ}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+
+        <StemIsolator
+          isOpen={showIsolator}
+          onClose={() => setShowIsolator(false)}
+          onSetMode={setStemMode}
+        />
+
+        {/* Sección Central Visual y Controles */}
+        <div className="flex-1 flex flex-col relative">
+          <Visualizer
+            analyser={analyser}
+            isPlaying={isPlaying}
+            coverUrl={coverUrl}
+            onTogglePlay={togglePlay}
+          />
+
+          {/* Controles sobre el visualizador */}
+          <div className="bg-gradient-to-t from-slate-950 to-slate-900/0 pb-4">
+            <PlayerControls
+              title={currentTrack ? currentTrack.name : "Esperando música..."}
+              orderText={
+                currentTrack
+                  ? `Pista ${currentIndex + 1} de ${playlist.length}`
+                  : "Sube archivos para comenzar"
+              }
+              currentTime={currentTime}
+              duration={duration}
+              isPlaying={isPlaying}
+              volume={volume}
+              onPlayPause={togglePlay}
+              onPrev={playPrev}
+              onNext={playNext}
+              onSeek={seek}
+              onVolume={updateVolume}
+              hasTracks={playlist.length > 0}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </div>
         </div>
+
+        {/* Playlist Lateral */}
+        <Playlist
+          playlist={playlist}
+          currentIndex={currentIndex}
+          onSelect={(index) => {
+            // Al hacer clic en la lista, forzamos la carga y reproducción
+            const track = playlist[index];
+            if (audioRef.current) {
+              audioRef.current.src = track.url;
+              audioRef.current.load();
+              // (Nota: Idealmente esto debería manejarse dentro de una función 'playTrack' expuesta por el hook)
+              setTimeout(() => togglePlay(), 50);
+            }
+          }}
+        />
       </main>
+
+      {/* Footer */}
+      <footer className="p-4 border-t border-slate-800 bg-slate-900/90 backdrop-blur-md text-center text-xs text-slate-400 font-medium flex-none z-20 pb-6 md:pb-4">
+        Developed with Next.js & Web Audio API
+      </footer>
     </div>
   );
 }
